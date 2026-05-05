@@ -17,26 +17,26 @@ class SharingService {
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
-  /// Shares the stack, uploading images and creating/updating the Supabase
-  /// record. Returns the shareable URL.
   Future<String> shareStack(Stack stack) async {
     _assertAuthenticated();
-    final imageUrls = await _uploadImages(stack.screenshots);
+    final imageUrls = await _uploadImages(stack.screenshots, stack.id!);
     if (stack.sharedId != null) {
-      await _updateSharedStack(stack.sharedId!, stack.name, imageUrls);
-      return '$_webBaseUrl/${stack.sharedId}';
+      final found =
+          await _updateSharedStack(stack.sharedId!, stack.name, imageUrls);
+      if (found) return '$_webBaseUrl/${stack.sharedId}';
+      // Local sharedId exists but Supabase record is gone — recreate.
     }
     final sharedId = await _createSharedStack(stack.name, imageUrls);
     await AppDatabase.instance.setStackSharedId(stack.id!, sharedId);
+    debugPrint('[SharingService] created shared_stacks row id=$sharedId');
     return '$_webBaseUrl/$sharedId';
   }
 
   /// Re-syncs image_urls for an already-shared stack after add/remove.
-  /// No-op if the stack is not shared.
   Future<void> syncSharedStack(Stack stack) async {
     if (stack.sharedId == null) return;
     _assertAuthenticated();
-    final imageUrls = await _uploadImages(stack.screenshots);
+    final imageUrls = await _uploadImages(stack.screenshots, stack.id!);
     await _updateSharedStack(stack.sharedId!, stack.name, imageUrls);
   }
 
@@ -57,14 +57,15 @@ class SharingService {
     }
   }
 
-  Future<List<String>> _uploadImages(List<Screenshot> screenshots) async {
+  Future<List<String>> _uploadImages(
+      List<Screenshot> screenshots, int stackId) async {
     final userId = _client.auth.currentUser!.id;
     final results = <String>[];
     final failures = <String>[];
 
     for (final screenshot in screenshots) {
       try {
-        final url = await _uploadOne(screenshot, userId);
+        final url = await _uploadOne(screenshot, userId, stackId);
         results.add(url);
       } catch (e) {
         debugPrint('[SharingService] upload failed for ${screenshot.uri}: $e');
@@ -86,8 +87,9 @@ class SharingService {
     return results;
   }
 
-  Future<String> _uploadOne(Screenshot screenshot, String userId) async {
-    // HTTP URIs are already remote — pass through without re-uploading.
+  Future<String> _uploadOne(
+      Screenshot screenshot, String userId, int stackId) async {
+    // Already a remote URL — skip re-upload.
     if (screenshot.uri.startsWith('http')) return screenshot.uri;
 
     final file = File(screenshot.uri);
@@ -95,16 +97,18 @@ class SharingService {
       throw Exception('Local file missing: ${screenshot.uri}');
     }
 
-    // Path: {userId}/{screenshotId}.jpg — stable key for idempotent upserts.
+    // Path: {userId}/{stackId}/{screenshotId}.jpg
+    // Each stack gets its own folder; stable key for idempotent upserts.
     final screenshotId = screenshot.id ?? screenshot.uri.hashCode;
-    final storagePath = '$userId/$screenshotId.jpg';
+    final storagePath = '$userId/$stackId/$screenshotId.jpg';
 
     final bytes = await file.readAsBytes();
     await _client.storage.from(_bucket).uploadBinary(
-      storagePath,
-      bytes,
-      fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
-    );
+          storagePath,
+          bytes,
+          fileOptions:
+              const FileOptions(contentType: 'image/jpeg', upsert: true),
+        );
 
     return _client.storage.from(_bucket).getPublicUrl(storagePath);
   }
@@ -124,12 +128,14 @@ class SharingService {
     return response['id'] as String;
   }
 
-  Future<void> _updateSharedStack(
+  Future<bool> _updateSharedStack(
       String sharedId, String name, List<String> imageUrls) async {
-    await _client.from('shared_stacks').update({
-      'stack_name': name,
-      'image_urls': imageUrls,
-    }).eq('id', sharedId);
+    final rows = await _client
+        .from('shared_stacks')
+        .update({'stack_name': name, 'image_urls': imageUrls})
+        .eq('id', sharedId)
+        .select('id');
+    return rows.isNotEmpty;
   }
 }
 

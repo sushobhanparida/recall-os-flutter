@@ -46,7 +46,8 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
         _stack = SharedStack.fromMap(data);
         _loading = false;
       });
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('[StackViewer] fetch failed: $e\n$st');
       setState(() {
         _error = true;
         _loading = false;
