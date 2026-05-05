@@ -26,6 +26,22 @@ jobs:
         working-directory: recallos_web_viewer
         run: flutter build web --release --base-href /
 
+      - name: Prepare Vercel output
+        working-directory: recallos_web_viewer
+        run: |
+          mkdir -p .vercel/output/static
+          cp -r build/web/. .vercel/output/static/
+          cat > .vercel/output/config.json << 'EOF'
+          {
+            "version": 3,
+            "routes": [
+              { "src": "/stack/(.*)", "dest": "/index.html" },
+              { "handle": "filesystem" },
+              { "src": "/(.*)", "dest": "/index.html" }
+            ]
+          }
+          EOF
+
       - name: Deploy to Vercel
         working-directory: recallos_web_viewer
-        run: npx vercel deploy build/web --token ${{ secrets.VERCEL_TOKEN }} --scope sushobhans-projects-7ccc9565 --yes --prod
+        run: npx vercel deploy --prebuilt --token ${{ secrets.VERCEL_TOKEN }} --scope sushobhans-projects-7ccc9565 --yes --prod
