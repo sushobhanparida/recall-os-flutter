@@ -11,7 +11,7 @@ class SharingService {
   static final SharingService instance = SharingService._();
 
   static const _bucket = 'stack-images';
-  static const _webBaseUrl = 'https://recallos.vercel.app/stack';
+  static const _webBaseUrl = 'https://recallos-web-viewer.vercel.app/stack';
 
   static SupabaseClient get _client => SupabaseConfig.client;
 
