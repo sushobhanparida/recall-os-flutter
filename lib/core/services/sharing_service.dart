@@ -21,10 +21,11 @@ class SharingService {
     _assertAuthenticated();
     final imageUrls = await _uploadImages(stack.screenshots, stack.id!);
     if (stack.sharedId != null) {
-      final found =
-          await _updateSharedStack(stack.sharedId!, stack.name, imageUrls);
-      if (found) return '$_webBaseUrl/${stack.sharedId}';
-      // Local sharedId exists but Supabase record is gone — recreate.
+      // Upsert by known UUID: updates if row exists, re-creates if deleted.
+      // Avoids a SELECT-after-UPDATE which could falsely return empty under
+      // certain RLS configurations and cause duplicate orphaned rows.
+      await _upsertSharedStack(stack.sharedId!, stack.name, imageUrls);
+      return '$_webBaseUrl/${stack.sharedId}';
     }
     final sharedId = await _createSharedStack(stack.name, imageUrls);
     await AppDatabase.instance.setStackSharedId(stack.id!, sharedId);
@@ -37,7 +38,7 @@ class SharingService {
     if (stack.sharedId == null) return;
     _assertAuthenticated();
     final imageUrls = await _uploadImages(stack.screenshots, stack.id!);
-    await _updateSharedStack(stack.sharedId!, stack.name, imageUrls);
+    await _upsertSharedStack(stack.sharedId!, stack.name, imageUrls);
   }
 
   /// Deletes the Supabase record and clears the local sharedId.
@@ -128,14 +129,18 @@ class SharingService {
     return response['id'] as String;
   }
 
-  Future<bool> _updateSharedStack(
+  Future<void> _upsertSharedStack(
       String sharedId, String name, List<String> imageUrls) async {
-    final rows = await _client
-        .from('shared_stacks')
-        .update({'stack_name': name, 'image_urls': imageUrls})
-        .eq('id', sharedId)
-        .select('id');
-    return rows.isNotEmpty;
+    final userId = _client.auth.currentUser!.id;
+    await _client.from('shared_stacks').upsert(
+      {
+        'id': sharedId,
+        'stack_name': name,
+        'owner_id': userId,
+        'image_urls': imageUrls,
+      },
+      onConflict: 'id',
+    );
   }
 }
 

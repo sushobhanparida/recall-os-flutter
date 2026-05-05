@@ -41,9 +41,13 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
           .from('shared_stacks')
           .select('id, stack_name, image_urls')
           .eq('id', widget.stackId)
-          .single();
+          .maybeSingle();
       setState(() {
-        _stack = SharedStack.fromMap(data);
+        if (data != null) {
+          _stack = SharedStack.fromMap(data);
+        } else {
+          _error = true; // row not found (deleted or never created)
+        }
         _loading = false;
       });
     } catch (e, st) {
