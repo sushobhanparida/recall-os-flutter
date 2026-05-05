@@ -1,0 +1,8 @@
+{
+  "buildCommand": "git clone https://github.com/flutter/flutter.git --depth 1 -b stable $HOME/flutter && cd recallos_web_viewer && $HOME/flutter/bin/flutter pub get && $HOME/flutter/bin/flutter build web --release --base-href / --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY",
+  "outputDirectory": "recallos_web_viewer/build/web",
+  "rewrites": [
+    { "source": "/stack/:uuid", "destination": "/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
