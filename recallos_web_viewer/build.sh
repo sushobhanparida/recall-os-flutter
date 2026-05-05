@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Run from the repo root: cd into this script's directory first
+cd "$(dirname "$0")"
+
 FLUTTER_DIR="$HOME/flutter"
 
 if [ ! -d "$FLUTTER_DIR" ]; then
