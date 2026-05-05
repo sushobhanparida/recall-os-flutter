@@ -1,5 +1,5 @@
 {
-  "buildCommand": "flutter build web --release --base-href /",
+  "buildCommand": "bash build.sh",
   "outputDirectory": "build/web",
   "rewrites": [
     { "source": "/stack/:uuid", "destination": "/index.html" },
