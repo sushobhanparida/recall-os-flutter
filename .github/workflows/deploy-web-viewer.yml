@@ -28,4 +28,4 @@ jobs:
 
       - name: Deploy to Vercel
         working-directory: recallos_web_viewer
-        run: npx vercel deploy --prebuilt build/web --token ${{ secrets.VERCEL_TOKEN }} --scope sushobhans-projects-7ccc9565 --yes --prod
+        run: npx vercel deploy build/web --token ${{ secrets.VERCEL_TOKEN }} --scope sushobhans-projects-7ccc9565 --yes --prod
