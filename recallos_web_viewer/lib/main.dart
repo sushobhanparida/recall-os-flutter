@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app.dart';
 
@@ -13,6 +14,7 @@ const _supabaseAnonKey = String.fromEnvironment(
 );
 
 void main() async {
+  usePathUrlStrategy();
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(url: _supabaseUrl, anonKey: _supabaseAnonKey);
   runApp(const RecallOSWebApp());
