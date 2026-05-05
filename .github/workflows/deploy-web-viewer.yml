@@ -2,7 +2,7 @@ name: Deploy Web Viewer
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - 'recallos_web_viewer/**'
 
