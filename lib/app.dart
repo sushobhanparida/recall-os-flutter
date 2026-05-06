@@ -22,6 +22,7 @@ import 'features/stacks/stacks_screen.dart';
 import 'features/stacks/widgets/stack_chooser_sheet.dart';
 import 'features/screenshot_detail/screenshot_detail_screen.dart';
 import 'features/stack_detail/stack_detail_screen.dart';
+import 'features/stack_detail/shared_stack_landing_screen.dart';
 import 'features/notes/note_picker_screen.dart';
 import 'features/notes/note_editor_screen.dart';
 import 'features/task/task_detail_screen.dart';
@@ -71,9 +72,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/stack/:id',
-        builder: (_, state) => StackDetailScreen(
-          stackId: int.parse(state.pathParameters['id']!),
-        ),
+        builder: (_, state) {
+          final id = state.pathParameters['id']!;
+          final localId = int.tryParse(id);
+          if (localId != null) {
+            return StackDetailScreen(stackId: localId);
+          }
+          // UUID-format id → incoming shared-stack deep link
+          return SharedStackLandingScreen(sharedId: id);
+        },
       ),
       GoRoute(path: '/notes/picker', builder: (_, __) => const NotePickerScreen()),
       GoRoute(

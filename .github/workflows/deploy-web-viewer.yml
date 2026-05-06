@@ -24,7 +24,11 @@ jobs:
 
       - name: Build Flutter Web
         working-directory: recallos_web_viewer
-        run: flutter build web --release --base-href /
+        run: |
+          flutter build web --release --base-href / \
+            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
+            --dart-define=WEB_ORIGIN=https://recallos-web-viewer.vercel.app
 
       - name: Prepare Vercel output
         working-directory: recallos_web_viewer
@@ -35,6 +39,16 @@ jobs:
           {
             "version": 3,
             "routes": [
+              {
+                "src": "/.well-known/assetlinks.json",
+                "headers": { "Content-Type": "application/json" },
+                "continue": true
+              },
+              {
+                "src": "/.well-known/apple-app-site-association",
+                "headers": { "Content-Type": "application/json" },
+                "continue": true
+              },
               { "src": "/stack/(.*)", "dest": "/index.html" },
               { "handle": "filesystem" },
               { "src": "/(.*)", "dest": "/index.html" }

@@ -46,6 +46,23 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="recallos" android:host="auth" />
             </intent-filter>
+            <!-- Custom scheme fallback for shared stack links -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="recallos" android:host="stack" />
+            </intent-filter>
+            <!-- App Links (universal links) — OS opens app instead of browser -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="recallos-web-viewer.vercel.app"
+                    android:pathPrefix="/stack/" />
+            </intent-filter>
         </activity>
         <meta-data
             android:name="flutterEmbedding"

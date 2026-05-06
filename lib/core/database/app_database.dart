@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/screenshot_model.dart';
@@ -19,7 +20,7 @@ class AppDatabase {
     final path = join(await getDatabasesPath(), 'recall_os.db');
     return openDatabase(
       path,
-      version: 11,
+      version: 12,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -112,6 +113,14 @@ class AppDatabase {
             definition: 'TEXT',
           );
         }
+        if (oldVersion < 12) {
+          await _addColumnIfMissing(db, table: 'stacks', column: 'isReadOnly', definition: 'INTEGER NOT NULL DEFAULT 0');
+          await _addColumnIfMissing(db, table: 'stacks', column: 'isPrivate', definition: 'INTEGER NOT NULL DEFAULT 1');
+          await _addColumnIfMissing(db, table: 'stacks', column: 'ownerAvatarUrl', definition: 'TEXT');
+          await _addColumnIfMissing(db, table: 'stacks', column: 'ownerName', definition: 'TEXT');
+          await _addColumnIfMissing(db, table: 'stacks', column: 'memberAvatars', definition: "TEXT NOT NULL DEFAULT '[]'");
+          await _addColumnIfMissing(db, table: 'stacks', column: 'imageUrls', definition: "TEXT NOT NULL DEFAULT '[]'");
+        }
         await _migrateLegacyTags(db);
       },
     );
@@ -186,7 +195,13 @@ class AppDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         createdAt INTEGER NOT NULL,
-        sharedId TEXT
+        sharedId TEXT,
+        isReadOnly INTEGER NOT NULL DEFAULT 0,
+        isPrivate INTEGER NOT NULL DEFAULT 1,
+        ownerAvatarUrl TEXT,
+        ownerName TEXT,
+        memberAvatars TEXT NOT NULL DEFAULT '[]',
+        imageUrls TEXT NOT NULL DEFAULT '[]'
       )
     ''');
 
@@ -367,7 +382,10 @@ class AppDatabase {
     final stacks = <Stack>[];
     for (final row in stackRows) {
       final id = row['id'] as int;
-      final screenshots = await _getScreenshotsForStack(id);
+      final isReadOnly = (row['isReadOnly'] as int? ?? 0) == 1;
+      final screenshots = isReadOnly
+          ? _syntheticScreenshots(row['imageUrls'] as String?)
+          : await _getScreenshotsForStack(id);
       stacks.add(Stack.fromMap(row, screenshots: screenshots));
     }
     return stacks;
@@ -378,8 +396,32 @@ class AppDatabase {
     final rows = await db.query('stacks',
         where: 'id = ?', whereArgs: [id], limit: 1);
     if (rows.isEmpty) return null;
-    final screenshots = await _getScreenshotsForStack(id);
-    return Stack.fromMap(rows.first, screenshots: screenshots);
+    final row = rows.first;
+    final isReadOnly = (row['isReadOnly'] as int? ?? 0) == 1;
+    final screenshots = isReadOnly
+        ? _syntheticScreenshots(row['imageUrls'] as String?)
+        : await _getScreenshotsForStack(id);
+    return Stack.fromMap(row, screenshots: screenshots);
+  }
+
+  Future<Stack?> getStackBySharedId(String sharedId) async {
+    final db = await database;
+    final rows = await db.query('stacks',
+        where: 'sharedId = ?', whereArgs: [sharedId], limit: 1);
+    if (rows.isEmpty) return null;
+    return getStackById(rows.first['id'] as int);
+  }
+
+  List<Screenshot> _syntheticScreenshots(String? imageUrlsJson) {
+    if (imageUrlsJson == null || imageUrlsJson.isEmpty) return const [];
+    try {
+      final urls = List<String>.from(jsonDecode(imageUrlsJson) as List);
+      return urls
+          .map((url) => Screenshot(uri: url, createdAt: DateTime.now()))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<List<Screenshot>> _getScreenshotsForStack(int stackId) async {
@@ -462,6 +504,81 @@ class AppDatabase {
         );
       }
       return stackId;
+    });
+  }
+
+  Future<void> setStackPrivacy(int stackId, bool isPrivate) async {
+    final db = await database;
+    await db.update(
+      'stacks',
+      {'isPrivate': isPrivate ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [stackId],
+    );
+  }
+
+  Future<void> updateStackAvatars(
+    int stackId, {
+    String? ownerAvatarUrl,
+    String? ownerName,
+    List<String>? memberAvatars,
+  }) async {
+    final db = await database;
+    await db.update(
+      'stacks',
+      {
+        if (ownerAvatarUrl != null) 'ownerAvatarUrl': ownerAvatarUrl,
+        if (ownerName != null) 'ownerName': ownerName,
+        if (memberAvatars != null) 'memberAvatars': jsonEncode(memberAvatars),
+      },
+      where: 'id = ?',
+      whereArgs: [stackId],
+    );
+  }
+
+  /// Upserts a read-only (shared-with-me) stack. Returns the local stack id.
+  Future<int> saveReadOnlyStack({
+    required String sharedId,
+    required String name,
+    required List<String> imageUrls,
+    String? ownerName,
+    String? ownerAvatarUrl,
+    List<String> memberAvatars = const [],
+  }) async {
+    final db = await database;
+    final existing = await db.query(
+      'stacks',
+      columns: ['id'],
+      where: 'sharedId = ?',
+      whereArgs: [sharedId],
+      limit: 1,
+    );
+    if (existing.isNotEmpty) {
+      final id = existing.first['id'] as int;
+      await db.update(
+        'stacks',
+        {
+          'name': name,
+          'imageUrls': jsonEncode(imageUrls),
+          'ownerName': ownerName,
+          'ownerAvatarUrl': ownerAvatarUrl,
+          'memberAvatars': jsonEncode(memberAvatars),
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      return id;
+    }
+    return db.insert('stacks', {
+      'name': name,
+      'createdAt': DateTime.now().millisecondsSinceEpoch,
+      'sharedId': sharedId,
+      'isReadOnly': 1,
+      'isPrivate': 1,
+      'imageUrls': jsonEncode(imageUrls),
+      'ownerName': ownerName,
+      'ownerAvatarUrl': ownerAvatarUrl,
+      'memberAvatars': jsonEncode(memberAvatars),
     });
   }
 

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/models/stack_model.dart' as stack_model;
@@ -7,15 +8,11 @@ import '../../../core/models/stack_model.dart' as stack_model;
 class StackCard extends StatelessWidget {
   final stack_model.Stack stack;
   final VoidCallback onTap;
-  final VoidCallback? onDelete;
-  final VoidCallback? onRename;
 
   const StackCard({
     super.key,
     required this.stack,
     required this.onTap,
-    this.onDelete,
-    this.onRename,
   });
 
   @override
@@ -74,24 +71,13 @@ class StackCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Menu button
-                  Positioned(
-                    bottom: 6,
-                    right: 6,
-                    child: GestureDetector(
-                      onTap: () => _showMenu(context),
-                      child: Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.more_horiz_rounded,
-                            size: 14, color: Colors.white),
-                      ),
+                  // Avatar group — shown when stack is shared or read-only
+                  if (_cardAvatars(stack).isNotEmpty)
+                    Positioned(
+                      bottom: 6,
+                      left: 8,
+                      child: _CardAvatarStack(avatarUrls: _cardAvatars(stack)),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -111,54 +97,97 @@ class StackCard extends StatelessWidget {
     );
   }
 
-  void _showMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.bgElevated,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-        side: BorderSide(color: AppColors.borderDefault, width: 1),
-      ),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 8, bottom: 4),
-              width: 32,
-              height: 3,
-              decoration: BoxDecoration(
-                color: AppColors.borderEmphasis,
-                borderRadius: BorderRadius.circular(2),
+}
+
+List<String> _cardAvatars(stack_model.Stack stack) {
+  if (stack.isReadOnly && stack.ownerAvatarUrl != null) {
+    return [stack.ownerAvatarUrl!];
+  }
+  return stack.memberAvatars;
+}
+
+class _CardAvatarStack extends StatelessWidget {
+  final List<String> avatarUrls;
+  const _CardAvatarStack({required this.avatarUrls});
+
+  @override
+  Widget build(BuildContext context) {
+    const size = 20.0;
+    const overlap = 8.0;
+    const maxVisible = 4;
+    final visible = avatarUrls.take(maxVisible).toList();
+    final overflow = avatarUrls.length - maxVisible;
+    final itemCount = visible.length + (overflow > 0 ? 1 : 0);
+    final totalWidth = size + (itemCount - 1) * (size - overlap);
+
+    return SizedBox(
+      width: totalWidth,
+      height: size,
+      child: Stack(
+        children: [
+          for (int i = 0; i < visible.length; i++)
+            Positioned(
+              left: i * (size - overlap),
+              child: _CardAvatar(url: visible[i], size: size),
+            ),
+          if (overflow > 0)
+            Positioned(
+              left: visible.length * (size - overlap),
+              child: Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black.withValues(alpha: 0.55),
+                  border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.2), width: 1),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '+$overflow',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: size * 0.3,
+                      fontWeight: FontWeight.w600),
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            if (onRename != null)
-              ListTile(
-                leading: const Icon(Icons.edit_outlined,
-                    color: AppColors.textSecondary, size: 18),
-                title: Text('Rename',
-                    style: AppTypography.bodyMd
-                        .copyWith(color: AppColors.textPrimary)),
-                onTap: () {
-                  Navigator.pop(context);
-                  onRename!();
-                },
-              ),
-            if (onDelete != null)
-              ListTile(
-                leading: const Icon(Icons.delete_outline_rounded,
-                    color: AppColors.error, size: 18),
-                title: Text('Delete stack',
-                    style:
-                        AppTypography.bodyMd.copyWith(color: AppColors.error)),
-                onTap: () {
-                  Navigator.pop(context);
-                  onDelete!();
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CardAvatar extends StatelessWidget {
+  final String url;
+  final double size;
+  const _CardAvatar({required this.url, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    final hue = (url.hashCode.abs() % 360).toDouble();
+    final fallback = HSLColor.fromAHSL(1, hue, 0.45, 0.35).toColor();
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+            color: Colors.black.withValues(alpha: 0.6), width: 1),
+      ),
+      child: ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          errorWidget: (_, __, ___) => Container(
+            color: fallback,
+            alignment: Alignment.center,
+            child: Text('?',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: size * 0.4,
+                    fontWeight: FontWeight.w600)),
+          ),
         ),
       ),
     );

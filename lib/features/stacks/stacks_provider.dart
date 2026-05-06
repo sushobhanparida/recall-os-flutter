@@ -59,6 +59,14 @@ class StacksNotifier extends StateNotifier<StacksState> {
 
   Future<void> deleteStack(int id) async {
     try {
+      final stack = await _db.getStackById(id);
+      if (stack != null && stack.isShared) {
+        try {
+          await SharingService.instance.unshareStack(stack);
+        } catch (e) {
+          debugPrint('[SharingService] unshare on delete failed: $e');
+        }
+      }
       await _db.deleteStack(id);
       _ref.invalidate(stackDetailProvider);
       await load();

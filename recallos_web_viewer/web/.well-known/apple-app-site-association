@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "REPLACE_WITH_TEAMID.com.example.recall_os_flutter",
+        "paths": ["/stack/*"]
+      }
+    ]
+  }
+}

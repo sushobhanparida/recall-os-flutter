@@ -1,4 +1,6 @@
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/models/shared_stack_model.dart';
 import 'stack_viewer_error.dart';
@@ -16,6 +18,7 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
   SharedStack? _stack;
   bool _loading = true;
   bool _error = false;
+  bool _showOpenInApp = true;
   final _pageController = PageController();
   int _currentPage = 0;
 
@@ -36,27 +39,67 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
   }
 
   Future<void> _fetchStack() async {
+    final client = Supabase.instance.client;
     try {
-      final data = await Supabase.instance.client
+      final data = await client
           .from('shared_stacks')
-          .select('id, stack_name, image_urls')
+          .select('id, stack_name, image_urls, is_private')
           .eq('id', widget.stackId)
           .maybeSingle();
-      setState(() {
-        if (data != null) {
-          _stack = SharedStack.fromMap(data);
-        } else {
-          _error = true; // row not found (deleted or never created)
-        }
-        _loading = false;
-      });
+
+      if (data == null) {
+        _handleAccessFailure(client);
+        return;
+      }
+      if (mounted) {
+        setState(() { _stack = SharedStack.fromMap(data); _loading = false; });
+      }
     } catch (e, st) {
+      // Treat any fetch error (PostgREST, network) the same as "no data" —
+      // redirect to login if unauthenticated, otherwise try to join.
       debugPrint('[StackViewer] fetch failed: $e\n$st');
-      setState(() {
-        _error = true;
-        _loading = false;
-      });
+      _handleAccessFailure(client);
     }
+  }
+
+  void _handleAccessFailure(SupabaseClient client) {
+    if (client.auth.currentUser == null) {
+      // Not signed in — send to login/signup, come back here after.
+      if (mounted) context.go('/auth/login?redirect=/stack/${widget.stackId}');
+    } else {
+      // Signed in but can't see the stack yet (private, not a member).
+      // UUID possession = invite token: join and retry.
+      _joinAndRefetch(client);
+    }
+  }
+
+  Future<void> _joinAndRefetch(SupabaseClient client) async {
+    try {
+      final userId = client.auth.currentUser!.id;
+      await client.from('shared_stack_members').upsert(
+        {'stack_id': widget.stackId, 'user_id': userId},
+        onConflict: 'stack_id,user_id',
+      );
+      final data = await client
+          .from('shared_stacks')
+          .select('id, stack_name, image_urls, is_private')
+          .eq('id', widget.stackId)
+          .maybeSingle();
+      if (!mounted) return;
+      if (data == null) {
+        // Stack truly doesn't exist (deleted / invalid UUID).
+        setState(() { _error = true; _loading = false; });
+        return;
+      }
+      setState(() { _stack = SharedStack.fromMap(data); _loading = false; });
+    } catch (e) {
+      debugPrint('[StackViewer] join+refetch failed: $e');
+      if (mounted) setState(() { _error = true; _loading = false; });
+    }
+  }
+
+  void _openInApp() {
+    html.window.location.href = 'recallos://stack/${widget.stackId}';
   }
 
   void _goToPrev() {
@@ -124,7 +167,14 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
           ),
         ],
       ),
-      body: LayoutBuilder(
+      body: Column(
+        children: [
+          if (_showOpenInApp)
+            _OpenInAppBanner(
+              onOpen: _openInApp,
+              onDismiss: () => setState(() => _showOpenInApp = false),
+            ),
+          Expanded(child: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth > 700;
           final viewerWidth = isWide ? 600.0 : constraints.maxWidth;
@@ -186,6 +236,53 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
             ),
           );
         },
+      )),
+        ],
+      ),
+    );
+  }
+}
+
+class _OpenInAppBanner extends StatelessWidget {
+  final VoidCallback onOpen;
+  final VoidCallback onDismiss;
+  const _OpenInAppBanner({required this.onOpen, required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFF141414),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Text(
+            'Open in RecallOS app',
+            style: TextStyle(color: Color(0xFFF7F7F7), fontSize: 13),
+          ),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: onOpen,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text(
+                'Open',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: onDismiss,
+            child: const Icon(Icons.close, color: Color(0xFF6B6B6B), size: 18),
+          ),
+        ],
       ),
     );
   }

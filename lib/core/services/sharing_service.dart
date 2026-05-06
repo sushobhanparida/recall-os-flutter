@@ -6,6 +6,13 @@ import '../models/screenshot_model.dart';
 import '../models/stack_model.dart';
 import '../supabase/supabase_config.dart';
 
+class StackAvatarInfo {
+  final String? ownerAvatarUrl;
+  final String? ownerName;
+  final List<String> memberAvatarUrls;
+  const StackAvatarInfo({this.ownerAvatarUrl, this.ownerName, this.memberAvatarUrls = const []});
+}
+
 class SharingService {
   SharingService._();
   static final SharingService instance = SharingService._();
@@ -17,17 +24,18 @@ class SharingService {
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
-  Future<String> shareStack(Stack stack) async {
+  Future<String> shareStack(Stack stack, {bool isPrivate = true}) async {
     _assertAuthenticated();
+    await _upsertOwnProfile();
     final imageUrls = await _uploadImages(stack.screenshots, stack.id!);
     if (stack.sharedId != null) {
       // Upsert by known UUID: updates if row exists, re-creates if deleted.
       // Avoids a SELECT-after-UPDATE which could falsely return empty under
       // certain RLS configurations and cause duplicate orphaned rows.
-      await _upsertSharedStack(stack.sharedId!, stack.name, imageUrls);
+      await _upsertSharedStack(stack.sharedId!, stack.name, imageUrls, isPrivate: isPrivate);
       return '$_webBaseUrl/${stack.sharedId}';
     }
-    final sharedId = await _createSharedStack(stack.name, imageUrls);
+    final sharedId = await _createSharedStack(stack.name, imageUrls, isPrivate: isPrivate);
     await AppDatabase.instance.setStackSharedId(stack.id!, sharedId);
     debugPrint('[SharingService] created shared_stacks row id=$sharedId');
     return '$_webBaseUrl/$sharedId';
@@ -38,7 +46,17 @@ class SharingService {
     if (stack.sharedId == null) return;
     _assertAuthenticated();
     final imageUrls = await _uploadImages(stack.screenshots, stack.id!);
-    await _upsertSharedStack(stack.sharedId!, stack.name, imageUrls);
+    await _upsertSharedStack(stack.sharedId!, stack.name, imageUrls, isPrivate: stack.isPrivate);
+  }
+
+  /// Toggles the public/private flag without re-uploading images.
+  Future<void> togglePublic(Stack stack, {required bool isPublic}) async {
+    if (stack.sharedId == null) return;
+    _assertAuthenticated();
+    await _client.from('shared_stacks')
+        .update({'is_private': !isPublic})
+        .eq('id', stack.sharedId!);
+    await AppDatabase.instance.setStackPrivacy(stack.id!, !isPublic);
   }
 
   /// Deletes the Supabase record and clears the local sharedId.
@@ -46,6 +64,130 @@ class SharingService {
     if (stack.sharedId == null) return;
     await _client.from('shared_stacks').delete().eq('id', stack.sharedId!);
     await AppDatabase.instance.setStackSharedId(stack.id!, null);
+  }
+
+  /// Called when a recipient opens a shared link. Idempotent — safe to call on re-open.
+  Future<int> saveSharedStack(String sharedId) async {
+    _assertAuthenticated();
+    final data = await _client
+        .from('shared_stacks')
+        .select('id, stack_name, image_urls, owner_id, is_private')
+        .eq('id', sharedId)
+        .maybeSingle();
+    if (data == null) throw Exception('Shared stack not found: $sharedId');
+
+    final imageUrls = List<String>.from(data['image_urls'] as List? ?? []);
+    final ownerId = data['owner_id'] as String?;
+
+    String? ownerAvatarUrl;
+    String? ownerName;
+    if (ownerId != null) {
+      final profile = await _client
+          .from('profiles')
+          .select('display_name, avatar_url')
+          .eq('id', ownerId)
+          .maybeSingle();
+      ownerAvatarUrl = profile?['avatar_url'] as String?;
+      ownerName = profile?['display_name'] as String?;
+    }
+
+    final localId = await AppDatabase.instance.saveReadOnlyStack(
+      sharedId: sharedId,
+      name: data['stack_name'] as String,
+      imageUrls: imageUrls,
+      ownerName: ownerName,
+      ownerAvatarUrl: ownerAvatarUrl,
+    );
+
+    // Register as a member (upsert via unique constraint)
+    final userId = _client.auth.currentUser!.id;
+    await _client.from('shared_stack_members').upsert(
+      {'stack_id': sharedId, 'user_id': userId},
+      onConflict: 'stack_id,user_id',
+    );
+
+    // Upsert own profile so others can see our avatar
+    await _upsertOwnProfile();
+
+    return localId;
+  }
+
+  /// Removes a recipient's copy of a shared stack locally and from membership.
+  Future<void> removeSharedStack(Stack stack) async {
+    if (!stack.isReadOnly || stack.id == null) return;
+    await AppDatabase.instance.deleteStack(stack.id!);
+    if (stack.sharedId != null) {
+      final userId = _client.auth.currentUser?.id;
+      if (userId != null) {
+        await _client.from('shared_stack_members')
+            .delete()
+            .eq('stack_id', stack.sharedId!)
+            .eq('user_id', userId);
+      }
+    }
+  }
+
+  /// Fetches owner + member avatar info for a shared stack and caches locally.
+  Future<StackAvatarInfo> fetchAndCacheAvatars(Stack stack) async {
+    if (stack.sharedId == null || stack.id == null) {
+      return const StackAvatarInfo();
+    }
+    _assertAuthenticated();
+
+    // Fetch owner profile
+    final sharedRow = await _client
+        .from('shared_stacks')
+        .select('owner_id')
+        .eq('id', stack.sharedId!)
+        .maybeSingle();
+    final ownerId = sharedRow?['owner_id'] as String?;
+
+    String? ownerAvatarUrl;
+    String? ownerName;
+    if (ownerId != null) {
+      final profile = await _client
+          .from('profiles')
+          .select('display_name, avatar_url')
+          .eq('id', ownerId)
+          .maybeSingle();
+      ownerAvatarUrl = profile?['avatar_url'] as String?;
+      ownerName = profile?['display_name'] as String?;
+    }
+
+    // Fetch member user_ids, then look up their profiles.
+    // Two queries because shared_stack_members.user_id → auth.users (not profiles),
+    // so Supabase can't do the embedded join automatically.
+    final memberRows = await _client
+        .from('shared_stack_members')
+        .select('user_id')
+        .eq('stack_id', stack.sharedId!);
+    final userIds = (memberRows as List<dynamic>)
+        .map((m) => m['user_id'] as String)
+        .toList();
+    var memberAvatarUrls = <String>[];
+    if (userIds.isNotEmpty) {
+      final profileRows = await _client
+          .from('profiles')
+          .select('avatar_url')
+          .inFilter('id', userIds);
+      memberAvatarUrls = (profileRows as List<dynamic>)
+          .map((p) => p['avatar_url'] as String?)
+          .whereType<String>()
+          .toList();
+    }
+
+    await AppDatabase.instance.updateStackAvatars(
+      stack.id!,
+      ownerAvatarUrl: ownerAvatarUrl,
+      ownerName: ownerName,
+      memberAvatars: memberAvatarUrls,
+    );
+
+    return StackAvatarInfo(
+      ownerAvatarUrl: ownerAvatarUrl,
+      ownerName: ownerName,
+      memberAvatarUrls: memberAvatarUrls,
+    );
   }
 
   String buildShareUrl(String sharedId) => '$_webBaseUrl/$sharedId';
@@ -115,7 +257,7 @@ class SharingService {
   }
 
   Future<String> _createSharedStack(
-      String name, List<String> imageUrls) async {
+      String name, List<String> imageUrls, {bool isPrivate = true}) async {
     final userId = _client.auth.currentUser!.id;
     final response = await _client
         .from('shared_stacks')
@@ -123,6 +265,7 @@ class SharingService {
           'stack_name': name,
           'owner_id': userId,
           'image_urls': imageUrls,
+          'is_private': isPrivate,
         })
         .select('id')
         .single();
@@ -130,7 +273,7 @@ class SharingService {
   }
 
   Future<void> _upsertSharedStack(
-      String sharedId, String name, List<String> imageUrls) async {
+      String sharedId, String name, List<String> imageUrls, {bool isPrivate = true}) async {
     final userId = _client.auth.currentUser!.id;
     await _client.from('shared_stacks').upsert(
       {
@@ -138,7 +281,19 @@ class SharingService {
         'stack_name': name,
         'owner_id': userId,
         'image_urls': imageUrls,
+        'is_private': isPrivate,
       },
+      onConflict: 'id',
+    );
+  }
+
+  Future<void> _upsertOwnProfile() async {
+    final user = _client.auth.currentUser!;
+    final meta = user.userMetadata ?? {};
+    final avatarUrl = meta['avatar_url'] as String? ?? meta['picture'] as String?;
+    final name = meta['full_name'] as String? ?? meta['name'] as String? ?? user.email;
+    await _client.from('profiles').upsert(
+      {'id': user.id, 'display_name': name, 'avatar_url': avatarUrl},
       onConflict: 'id',
     );
   }

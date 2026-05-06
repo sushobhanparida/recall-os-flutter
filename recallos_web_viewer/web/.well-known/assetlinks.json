@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.example.recall_os_flutter",
+    "sha256_cert_fingerprints": ["80:84:80:AF:9E:5F:A9:03:57:2A:65:71:71:99:5A:76:30:7C:E5:54:23:D9:83:31:23:92:71:3E:0D:9E:EC:19"]
+  }
+}]

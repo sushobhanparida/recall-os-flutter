@@ -85,9 +85,6 @@ class _StacksScreenState extends ConsumerState<StacksScreen> {
                             return StackCard(
                               stack: s,
                               onTap: () => context.push('/stack/${s.id}'),
-                              onDelete: () => notifier.deleteStack(s.id!),
-                              onRename: () => _showRenameDialog(
-                                  context, ref, s.id!, s.name),
                             );
                           },
                         ),
@@ -131,18 +128,6 @@ class _StacksScreenState extends ConsumerState<StacksScreen> {
       actionLabel: 'Create',
       onConfirm: (name) =>
           ref.read(stacksProvider.notifier).createStack(name),
-    );
-  }
-
-  void _showRenameDialog(
-      BuildContext context, WidgetRef ref, int id, String current) {
-    _showNameDialog(
-      context: context,
-      title: 'Rename Stack',
-      hint: current,
-      actionLabel: 'Save',
-      onConfirm: (name) =>
-          ref.read(stacksProvider.notifier).renameStack(id, name),
     );
   }
 
