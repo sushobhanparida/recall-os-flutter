@@ -134,47 +134,51 @@ class SharingService {
     }
     _assertAuthenticated();
 
-    // Fetch owner profile
-    final sharedRow = await _client
-        .from('shared_stacks')
-        .select('owner_id')
-        .eq('id', stack.sharedId!)
-        .maybeSingle();
-    final ownerId = sharedRow?['owner_id'] as String?;
+    // Round 1 — owner lookup and member ID list are independent: run in parallel.
+    final round1 = await Future.wait<dynamic>([
+      _client
+          .from('shared_stacks')
+          .select('owner_id')
+          .eq('id', stack.sharedId!)
+          .maybeSingle(),
+      _client
+          .from('shared_stack_members')
+          .select('user_id')
+          .eq('stack_id', stack.sharedId!),
+    ]);
 
-    String? ownerAvatarUrl;
-    String? ownerName;
-    if (ownerId != null) {
-      final profile = await _client
-          .from('profiles')
-          .select('display_name, avatar_url')
-          .eq('id', ownerId)
-          .maybeSingle();
-      ownerAvatarUrl = profile?['avatar_url'] as String?;
-      ownerName = profile?['display_name'] as String?;
-    }
-
-    // Fetch member user_ids, then look up their profiles.
-    // Two queries because shared_stack_members.user_id → auth.users (not profiles),
-    // so Supabase can't do the embedded join automatically.
-    final memberRows = await _client
-        .from('shared_stack_members')
-        .select('user_id')
-        .eq('stack_id', stack.sharedId!);
-    final userIds = (memberRows as List<dynamic>)
+    final ownerId = (round1[0] as Map<String, dynamic>?)?['owner_id'] as String?;
+    final userIds = (round1[1] as List<dynamic>)
         .map((m) => m['user_id'] as String)
         .toList();
-    var memberAvatarUrls = <String>[];
-    if (userIds.isNotEmpty) {
-      final profileRows = await _client
-          .from('profiles')
-          .select('avatar_url')
-          .inFilter('id', userIds);
-      memberAvatarUrls = (profileRows as List<dynamic>)
-          .map((p) => p['avatar_url'] as String?)
-          .whereType<String>()
-          .toList();
-    }
+
+    // Round 2 — owner profile and member profiles are independent: run in parallel.
+    // Two separate profile queries because shared_stack_members.user_id → auth.users
+    // (not profiles), so Supabase can't do the embedded join automatically.
+    final round2 = await Future.wait<dynamic>([
+      ownerId != null
+          ? _client
+              .from('profiles')
+              .select('display_name, avatar_url')
+              .eq('id', ownerId)
+              .maybeSingle()
+          : Future<dynamic>.value(null),
+      userIds.isNotEmpty
+          ? _client
+              .from('profiles')
+              .select('avatar_url')
+              .inFilter('id', userIds)
+          : Future<dynamic>.value(<dynamic>[]),
+    ]);
+
+    final ownerProfile = round2[0] as Map<String, dynamic>?;
+    final ownerAvatarUrl = ownerProfile?['avatar_url'] as String?;
+    final ownerName = ownerProfile?['display_name'] as String?;
+
+    final memberAvatarUrls = (round2[1] as List<dynamic>)
+        .map((p) => p['avatar_url'] as String?)
+        .whereType<String>()
+        .toList();
 
     await AppDatabase.instance.updateStackAvatars(
       stack.id!,

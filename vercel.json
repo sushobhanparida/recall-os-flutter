@@ -3,6 +3,13 @@
   "outputDirectory": "recallos_web_viewer/build/web",
   "rewrites": [
     { "source": "/stack/:uuid", "destination": "/index.html" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/auth/login", "destination": "/index.html" },
+    { "source": "/((?!\\.well-known).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/.well-known/(.*)",
+      "headers": [{ "key": "Content-Type", "value": "application/json" }]
+    }
   ]
 }

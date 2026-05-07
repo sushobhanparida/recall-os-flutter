@@ -42,6 +42,9 @@ dependencies:
   # Launching UPI / URL / vcard intents
   url_launcher: ^6.3.0
 
+  # Native OS share sheet (Messenger, WhatsApp, Messages, etc.)
+  share_plus: ^10.0.0
+
   # Image cropping
   image_cropper: ^8.0.2
   image: ^4.5.4
