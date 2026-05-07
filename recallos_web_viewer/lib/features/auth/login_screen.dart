@@ -31,6 +31,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   _Step _step = _Step.landing;
   bool _contentVisible = false;
+  String? _stackName;
 
   final _emailCtrl    = TextEditingController();
   final _passwordCtrl = TextEditingController();
@@ -40,12 +41,33 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool get _isStackContext => widget.redirect.contains('/stack/');
 
+  String? _extractStackId(String redirect) {
+    final match = RegExp(r'/stack/([^/?]+)').firstMatch(redirect);
+    return match?.group(1);
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() => _contentVisible = true);
     });
+    _fetchStackName();
+  }
+
+  Future<void> _fetchStackName() async {
+    final stackId = _extractStackId(widget.redirect);
+    if (stackId == null) return;
+    try {
+      final data = await Supabase.instance.client
+          .from('shared_stacks')
+          .select('stack_name')
+          .eq('id', stackId)
+          .maybeSingle();
+      if (mounted && data != null) {
+        setState(() => _stackName = data['stack_name'] as String?);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -223,6 +245,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           contentVisible: _contentVisible,
                           googleLoading: _googleLoading,
                           isStackContext: _isStackContext,
+                          stackName: _stackName,
                           onEmail: () => setState(() => _step = _Step.email),
                           onGoogle: _signInWithGoogle,
                         ),
@@ -271,6 +294,7 @@ class _LandingView extends StatelessWidget {
   final bool contentVisible;
   final bool googleLoading;
   final bool isStackContext;
+  final String? stackName;
   final VoidCallback onEmail;
   final VoidCallback onGoogle;
 
@@ -281,6 +305,7 @@ class _LandingView extends StatelessWidget {
     required this.isStackContext,
     required this.onEmail,
     required this.onGoogle,
+    this.stackName,
   });
 
   @override
@@ -319,7 +344,25 @@ class _LandingView extends StatelessWidget {
           opacity: contentVisible ? 1.0 : 0.0,
           duration: const Duration(milliseconds: 600),
           curve: Curves.easeOut,
-          child: const _StackedCardsHero(),
+          child: Column(
+            children: [
+              const _StackedCardsHero(),
+              const SizedBox(height: 10),
+              if (isStackContext)
+                Text(
+                  stackName ?? 'Shared Stack',
+                  style: const TextStyle(
+                    color: _textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.1,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+            ],
+          ),
         ),
         const Spacer(flex: 3),
         AnimatedOpacity(
@@ -726,12 +769,12 @@ class _PrimaryButtonState extends State<_PrimaryButton> {
       style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.w600),
     );
     if (widget.icon == null) return label;
-    final icon = Icon(widget.icon, size: 17, color: color);
+    final icon = Icon(widget.icon, size: 18, color: color);
     return Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: widget.iconTrailing
-          ? [label, const SizedBox(width: 6), icon]
+          ? [label, const SizedBox(width: 8), icon]
           : [icon, const SizedBox(width: 8), label],
     );
   }
@@ -835,14 +878,14 @@ class _GoogleButtonState extends State<_GoogleButton> {
                   children: [
                     SvgPicture.asset(
                       'assets/images/google_logo.svg',
-                      width: 20,
-                      height: 20,
+                      width: 18,
+                      height: 18,
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     const Text(
                       'Continue with Google',
                       style: TextStyle(
-                        color: _textPrimary, fontSize: 16, fontWeight: FontWeight.w500,
+                        color: _textPrimary, fontSize: 16, fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
