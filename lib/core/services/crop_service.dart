@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
 import 'package:google_mlkit_object_detection/google_mlkit_object_detection.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_cropper/image_cropper.dart';
 import 'package:path/path.dart' as p;
+import '../theme/colors.dart';
 
 enum CropResult { success, noSubjectDetected, cancelled, failed }
 
@@ -78,13 +78,13 @@ class CropService {
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: 'Crop',
-            toolbarColor: const Color(0xFF0F0F0F),
-            toolbarWidgetColor: const Color(0xFFF7F7F7),
-            statusBarColor: const Color(0xFF0F0F0F),
-            backgroundColor: const Color(0xFF0F0F0F),
-            activeControlsWidgetColor: const Color(0xFF5E6AD2),
-            cropFrameColor: const Color(0xFFF7F7F7),
-            cropGridColor: const Color(0x55FFFFFF),
+            toolbarColor: AppColors.bgBase,
+            toolbarWidgetColor: AppColors.textPrimary,
+            statusBarColor: AppColors.bgBase,
+            backgroundColor: AppColors.bgBase,
+            activeControlsWidgetColor: AppColors.accent,
+            cropFrameColor: AppColors.textPrimary,
+            cropGridColor: AppColors.borderSubtle.withValues(alpha: 0.33),
             hideBottomControls: false,
             lockAspectRatio: false,
           ),

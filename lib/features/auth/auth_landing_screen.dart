@@ -347,7 +347,6 @@ class _LandingView extends StatelessWidget {
                 AuthPrimaryButton(
                   label: 'Continue with Email',
                   onPressed: onEmail,
-                  height: _landingCtaHeight,
                 ),
                 const SizedBox(height: 12),
                 AuthGoogleButton(
@@ -425,7 +424,7 @@ class _LandingOrbBackgroundState extends State<_LandingOrbBackground>
                   ),
                   colors: [
                     AppColors.accentText.withValues(alpha: 0.26),
-                    const Color(0xFF4A6CF7).withValues(alpha: 0.07),
+                    AppColors.accentMuted.withValues(alpha: 0.20),
                     Colors.transparent,
                   ],
                 ),
@@ -436,7 +435,7 @@ class _LandingOrbBackgroundState extends State<_LandingOrbBackground>
                     height * 0.62 - height * 0.09 * t,
                   ),
                   colors: [
-                    const Color(0xFF00C2FF).withValues(alpha: 0.20),
+                    AppColors.accent.withValues(alpha: 0.18),
                     AppColors.accentMuted.withValues(alpha: 0.07),
                     Colors.transparent,
                   ],
@@ -447,7 +446,7 @@ class _LandingOrbBackgroundState extends State<_LandingOrbBackground>
                     child: CustomPaint(
                       painter: _NoisePainter(
                         blockSize: 4,
-                        dotColor: Colors.white.withValues(alpha: 0.06),
+                        dotColor: AppColors.borderSubtle.withValues(alpha: 0.60),
                       ),
                     ),
                   ),

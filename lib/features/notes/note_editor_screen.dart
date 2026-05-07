@@ -284,7 +284,7 @@ class _PillButton extends StatelessWidget {
     final fg = destructive
         ? AppColors.error
         : primary
-            ? Colors.white
+            ? AppColors.textPrimary
             : AppColors.textPrimary;
     final border = destructive
         ? AppColors.error.withValues(alpha: 0.3)

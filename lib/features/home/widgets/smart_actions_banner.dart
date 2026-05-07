@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/services/smart_actions_service.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
+import '../../../shared/widgets/primary_button.dart';
 
 class SmartActionsBanner extends StatelessWidget {
   final List<SmartAction> actions;
@@ -107,7 +108,7 @@ class SmartActionsBanner extends StatelessWidget {
                   },
                   child: Text('Remove',
                       style: AppTypography.bodyLg.copyWith(
-                          color: Colors.white, fontWeight: FontWeight.w600)),
+                          color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
                 ),
               ),
               const SizedBox(height: 8),
@@ -192,26 +193,12 @@ class _ActionCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: onExecute,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: AppColors.accent,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(action.icon, size: 13, color: Colors.white),
-                              const SizedBox(width: 5),
-                              Text(action.label,
-                                  style: AppTypography.labelMd
-                                      .copyWith(color: Colors.white)),
-                            ],
-                          ),
-                        ),
+                      PrimaryButton(
+                        label: action.label,
+                        icon: action.icon,
+                        onPressed: onExecute,
+                        size: PrimaryButtonSize.sm,
+                  
                       ),
                     ],
                   ),

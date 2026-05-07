@@ -206,7 +206,7 @@ class TaskDetailScreen extends ConsumerWidget {
                         : AppColors.accent,
                     foregroundColor: task.isCompleted
                         ? AppColors.textSecondary
-                        : Colors.white,
+                        : AppColors.textPrimary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(999),
                     ),

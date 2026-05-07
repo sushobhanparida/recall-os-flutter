@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/services/suggestion_service.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
+import '../../../shared/widgets/primary_button.dart';
 
 class SuggestionCard extends StatelessWidget {
   final StackSuggestion suggestion;
@@ -18,10 +19,10 @@ class SuggestionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final previews = suggestion.screenshots.take(3).toList();
+    final previews = suggestion.screenshots.map((s) => s.uri).toList();
 
     return Container(
-      width: 220,
+      width: 155,
       decoration: BoxDecoration(
         color: AppColors.bgSurface,
         borderRadius: BorderRadius.circular(10),
@@ -31,30 +32,12 @@ class SuggestionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Preview strip + dismiss button
+          // Fan collage + dismiss + count
           Stack(
             children: [
               SizedBox(
-                height: 90,
-                child: Row(
-                  children: List.generate(3, (i) {
-                    final isLast = i == 2;
-                    if (i >= previews.length) {
-                      return Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(right: isLast ? 0 : 1),
-                          child: Container(color: AppColors.bgElevated),
-                        ),
-                      );
-                    }
-                    return Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(right: isLast ? 0 : 1),
-                        child: _Thumb(uri: previews[i].uri),
-                      ),
-                    );
-                  }),
-                ),
+                height: 86,
+                child: _FanCollage(uris: previews),
               ),
               Positioned(
                 top: 6,
@@ -80,19 +63,13 @@ class SuggestionCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppColors.accent.withValues(alpha: 0.9),
+                    color: Colors.black.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.auto_awesome_outlined,
-                          size: 10, color: Colors.white),
-                      const SizedBox(width: 3),
-                      Text('Suggested',
-                          style: AppTypography.labelSm
-                              .copyWith(color: Colors.white)),
-                    ],
+                  child: Text(
+                    '${suggestion.screenshots.length}',
+                    style: AppTypography.monoSm
+                        .copyWith(color: Colors.white),
                   ),
                 ),
               ),
@@ -100,7 +77,7 @@ class SuggestionCard extends StatelessWidget {
           ),
           // Body
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -111,34 +88,76 @@ class SuggestionCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '${suggestion.screenshots.length} screenshots',
-                  style: AppTypography.labelSm
-                      .copyWith(color: AppColors.textMuted),
-                ),
-                const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: onAccept,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 7),
-                    decoration: BoxDecoration(
-                      color: AppColors.accent,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      'Create stack',
-                      style: AppTypography.labelMd
-                          .copyWith(color: Colors.white),
-                    ),
-                  ),
+                const SizedBox(height: 8),
+                PrimaryButton(
+                  label: 'Create stack',
+                  onPressed: onAccept,
+                  expanded: true,
+                  size: PrimaryButtonSize.sm,
                 ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _FanCollage extends StatelessWidget {
+  final List<String> uris;
+  const _FanCollage({required this.uris});
+
+  static const _angles = [0.0, 0.12, 0.22];
+
+  @override
+  Widget build(BuildContext context) {
+    final previews = uris.take(3).toList();
+    if (previews.isEmpty) {
+      return Container(
+        color: AppColors.bgElevated,
+        child: const Center(
+          child: Icon(Icons.photo_library_outlined,
+              color: AppColors.textMuted, size: 20),
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        final cardW = w * 0.72;
+        final cardH = h * 0.86;
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(color: AppColors.bgElevated),
+            for (int i = previews.length - 1; i >= 0; i--)
+              Transform.rotate(
+                angle: _angles[i],
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  width: cardW,
+                  height: cardH,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _Thumb(uri: previews[i]),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

@@ -26,7 +26,7 @@ class TagFilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return ShaderMask(
       shaderCallback: (bounds) => const LinearGradient(
-        colors: [Colors.white, Colors.white, Colors.transparent],
+        colors: [AppColors.bgBase, AppColors.bgBase, Colors.transparent],
         stops: [0.0, 0.96, 1.0],
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,

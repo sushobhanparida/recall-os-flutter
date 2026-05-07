@@ -29,49 +29,13 @@ class StackCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Cover image
+            // Fan collage cover
             Expanded(
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _Cover(stack: stack),
-                  // Gradient overlay
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.5),
-                        ],
-                        stops: const [0.5, 1.0],
-                      ),
-                    ),
-                  ),
-                  // Count badge
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        '${stack.screenshots.length}',
-                        style: AppTypography.monoSm
-                            .copyWith(color: Colors.white),
-                      ),
-                    ),
-                  ),
-                  // Avatar group — shown when stack is shared or read-only
+                  _FanCollage(uris: stack.screenshots.map((s) => s.uri).toList()),
+                  // Avatar group
                   if (_cardAvatars(stack).isNotEmpty)
                     Positioned(
                       bottom: 6,
@@ -81,14 +45,34 @@ class StackCard extends StatelessWidget {
                 ],
               ),
             ),
-            // Name footer
+            // Name + count footer
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child: Text(
-                stack.name,
-                style: AppTypography.labelLg,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              padding: const EdgeInsets.fromLTRB(10, 7, 10, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      stack.name,
+                      style: AppTypography.labelLg,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgElevated,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: AppColors.borderDefault),
+                    ),
+                    child: Text(
+                      '${stack.screenshots.length}',
+                      style: AppTypography.monoSm
+                          .copyWith(color: AppColors.textMuted),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -138,15 +122,15 @@ class _CardAvatarStack extends StatelessWidget {
                 height: size,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.black.withValues(alpha: 0.55),
+                  color: AppColors.shadowStrong,
                   border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.2), width: 1),
+                      color: AppColors.borderEmphasis, width: 1),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   '+$overflow',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontSize: size * 0.3,
                       fontWeight: FontWeight.w600),
                 ),
@@ -173,7 +157,7 @@ class _CardAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-            color: Colors.black.withValues(alpha: 0.6), width: 1),
+            color: AppColors.shadowStrong, width: 1),
       ),
       child: ClipOval(
         child: CachedNetworkImage(
@@ -184,7 +168,7 @@ class _CardAvatar extends StatelessWidget {
             alignment: Alignment.center,
             child: Text('?',
                 style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                     fontSize: size * 0.4,
                     fontWeight: FontWeight.w600)),
           ),
@@ -194,13 +178,16 @@ class _CardAvatar extends StatelessWidget {
   }
 }
 
-class _Cover extends StatelessWidget {
-  final stack_model.Stack stack;
-  const _Cover({required this.stack});
+class _FanCollage extends StatelessWidget {
+  final List<String> uris;
+  const _FanCollage({required this.uris});
+
+  static const _angles = [0.0, 0.12, 0.22];
 
   @override
   Widget build(BuildContext context) {
-    if (stack.coverImage == null) {
+    final previews = uris.take(3).toList();
+    if (previews.isEmpty) {
       return Container(
         color: AppColors.bgElevated,
         child: const Center(
@@ -209,12 +196,61 @@ class _Cover extends StatelessWidget {
         ),
       );
     }
-    final uri = stack.coverImage!.uri;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        final cardW = w * 0.72;
+        final cardH = h * 0.86;
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(color: AppColors.bgElevated),
+            for (int i = previews.length - 1; i >= 0; i--)
+              Transform.rotate(
+                angle: _angles[i],
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  width: cardW,
+                  height: cardH,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.shadowDefault,
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _Thumb(uri: previews[i]),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _Thumb extends StatelessWidget {
+  final String uri;
+  const _Thumb({required this.uri});
+
+  @override
+  Widget build(BuildContext context) {
     if (uri.startsWith('http')) {
-      return Image.network(uri, fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(color: AppColors.bgElevated));
+      return Image.network(uri,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+              Container(color: AppColors.bgElevated));
     }
-    return Image.file(File(uri), fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(color: AppColors.bgElevated));
+    return Image.file(File(uri),
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) =>
+            Container(color: AppColors.bgElevated));
   }
 }

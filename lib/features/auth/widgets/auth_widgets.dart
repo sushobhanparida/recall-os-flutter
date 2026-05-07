@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
+import '../../../shared/widgets/primary_button.dart';
 
 class AuthTextField extends StatefulWidget {
   final TextEditingController controller;
@@ -101,41 +102,22 @@ class AuthPrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final bool loading;
-  final double height;
 
   const AuthPrimaryButton({
     super.key,
     required this.label,
     required this.onPressed,
     this.loading = false,
-    this.height = 46,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: height,
-      child: ElevatedButton(
-        onPressed: loading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.accent,
-          disabledBackgroundColor: AppColors.accentMuted,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          elevation: 0,
-        ),
-        child: loading
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation(Colors.white),
-                ),
-              )
-            : Text(label, style: AppTypography.labelLg.copyWith(color: Colors.white, fontSize: 16)),
-      ),
+    return PrimaryButton(
+      label: label,
+      onPressed: onPressed,
+      loading: loading,
+      expanded: true,
+      size: PrimaryButtonSize.lg,
     );
   }
 }
@@ -149,7 +131,7 @@ class AuthGoogleButton extends StatelessWidget {
     super.key,
     required this.onPressed,
     this.loading = false,
-    this.height = 46,
+    this.height = 52,
   });
 
   @override
@@ -161,7 +143,7 @@ class AuthGoogleButton extends StatelessWidget {
         onPressed: loading ? null : onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
-          side: const BorderSide(color: AppColors.borderDefault),
+          side: const BorderSide(color: AppColors.borderWhiteSubtle),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: loading
@@ -225,7 +207,7 @@ class AuthErrorBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.errorMuted,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.error.withOpacity(0.3)),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
       ),
       child: Text(message, style: AppTypography.bodySm.copyWith(color: AppColors.error)),
     );

@@ -15,13 +15,11 @@ import '../../core/services/crop_service.dart';
 import '../../core/services/smart_actions_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/typography.dart';
+import '../../shared/widgets/primary_button.dart';
 import '../../shared/widgets/tag_badge.dart';
 import '../home/home_provider.dart';
 import '../stacks/stacks_provider.dart';
 import '../stacks/widgets/stack_chooser_sheet.dart';
-import '../task/task_provider.dart';
-import '../task/widgets/add_to_tasks_sheet.dart';
-
 import '../task/task_provider.dart';
 import '../task/widgets/add_to_tasks_sheet.dart';
 
@@ -138,7 +136,7 @@ Future<void> _handleEntityPillTap(
         SnackBar(
           content: Text(
             'Copied',
-            style: AppTypography.bodySm.copyWith(color: Colors.white),
+            style: AppTypography.bodySm.copyWith(color: AppColors.textPrimary),
           ),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
@@ -410,7 +408,7 @@ Future<void> _openNewContactWithPhone(BuildContext context, String raw) async {
       SnackBar(
         content: Text(
           'Phone copied — paste when creating a contact',
-          style: AppTypography.bodySm.copyWith(color: Colors.white),
+          style: AppTypography.bodySm.copyWith(color: AppColors.textPrimary),
         ),
         behavior: SnackBarBehavior.floating,
       ),
@@ -549,7 +547,7 @@ class _ScreenshotDetailScreenState
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message,
-            style: AppTypography.bodySm.copyWith(color: Colors.white)),
+            style: AppTypography.bodySm.copyWith(color: AppColors.textPrimary)),
         backgroundColor: isError ? AppColors.error : AppColors.bgElevated,
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
@@ -562,7 +560,7 @@ class _ScreenshotDetailScreenState
     final async = ref.watch(screenshotDetailProvider(widget.screenshotId));
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1C1C20),
+      backgroundColor: AppColors.bgElevated,
       body: Stack(
         children: [
           async.when(
@@ -959,40 +957,27 @@ class _SmartActionCTA extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
-        decoration: BoxDecoration(
-          color: AppColors.accent,
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.accent.withValues(alpha: 0.42),
-              blurRadius: 20,
-              spreadRadius: 2,
-              offset: const Offset(0, 6),
-            ),
-            BoxShadow(
-              color: AppColors.accent.withValues(alpha: 0.15),
-              blurRadius: 12,
-              spreadRadius: 0,
-              offset: const Offset(0, 2),
-            ),
-          ],
+    return PrimaryButton(
+      label: action.label,
+      icon: action.icon,
+      onPressed: onTap,
+      size: PrimaryButtonSize.md,
+      shape: PrimaryButtonShape.pill,
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
+      extraShadow: [
+        BoxShadow(
+          color: AppColors.accent.withValues(alpha: 0.42),
+          blurRadius: 20,
+          spreadRadius: 2,
+          offset: const Offset(0, 6),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(action.icon, size: 15, color: Colors.white),
-            const SizedBox(width: 8),
-            Text(
-              action.label,
-              style: AppTypography.labelLg.copyWith(color: Colors.white),
-            ),
-          ],
+        BoxShadow(
+          color: AppColors.accent.withValues(alpha: 0.15),
+          blurRadius: 12,
+          spreadRadius: 0,
+          offset: const Offset(0, 2),
         ),
-      ),
+      ],
     );
   }
 }
@@ -1007,7 +992,7 @@ class _ProcessingOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned.fill(
       child: ColoredBox(
-        color: Colors.black.withValues(alpha: 0.55),
+        color: AppColors.shadowStrong,
         child: Center(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),

@@ -49,45 +49,65 @@ class _StacksScreenState extends ConsumerState<StacksScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const _SuggestionsSection(),
                 Expanded(
                   child: Stack(
                     children: [
-                      if (state.error != null)
-                        _ErrorState(
-                            message: state.error!, onRetry: notifier.load)
-                      else if (state.isLoading && filteredStacks.isEmpty)
-                        const Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                            color: AppColors.accent,
-                          ),
-                        )
-                      else if (filteredStacks.isEmpty)
-                        const EmptyState(
-                          icon: Icons.layers_outlined,
-                          title: 'No stacks yet',
-                          subtitle: 'Create a stack to organize your screenshots',
-                        )
-                      else
-                        GridView.builder(
-                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 100),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                            childAspectRatio: 0.85,
-                          ),
-                          itemCount: filteredStacks.length,
-                          itemBuilder: (context, i) {
-                            final s = filteredStacks[i];
-                            return StackCard(
-                              stack: s,
-                              onTap: () => context.push('/stack/${s.id}'),
-                            );
-                          },
-                        ),
+                      CustomScrollView(
+                        slivers: [
+                          const SliverToBoxAdapter(child: _SuggestionsSection()),
+                          if (state.error != null)
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: _ErrorState(
+                                  message: state.error!, onRetry: notifier.load),
+                            )
+                          else if (state.isLoading && filteredStacks.isEmpty)
+                            const SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: AppColors.accent,
+                                ),
+                              ),
+                            )
+                          else if (filteredStacks.isEmpty)
+                            const SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: EmptyState(
+                                icon: Icons.layers_outlined,
+                                title: 'No stacks yet',
+                                subtitle:
+                                    'Create a stack to organize your screenshots',
+                              ),
+                            )
+                          else
+                            SliverPadding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(22, 0, 22, 100),
+                              sliver: SliverGrid(
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, i) {
+                                    final s = filteredStacks[i];
+                                    return StackCard(
+                                      stack: s,
+                                      onTap: () =>
+                                          context.push('/stack/${s.id}'),
+                                    );
+                                  },
+                                  childCount: filteredStacks.length,
+                                ),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
+                                  childAspectRatio: 0.85,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                       Positioned(
                         top: 0,
                         left: 0,

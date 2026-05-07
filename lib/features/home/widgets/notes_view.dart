@@ -145,11 +145,11 @@ class _FanHero extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(Icons.auto_awesome_outlined,
-                                size: 12, color: Colors.white),
+                                size: 12, color: AppColors.textPrimary),
                             const SizedBox(width: 5),
                             Text('Pick screenshot',
                                 style: AppTypography.labelSm
-                                    .copyWith(color: Colors.white)),
+                                    .copyWith(color: AppColors.textPrimary)),
                           ],
                         ),
                       ),
@@ -250,7 +250,7 @@ class _FanCard extends StatelessWidget {
         border: Border.all(color: AppColors.borderEmphasis, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
+            color: AppColors.shadowDefault,
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -335,13 +335,13 @@ class _NoteCard extends ConsumerWidget {
     final hash = (note.id ?? 0) % 4;
     switch (hash) {
       case 0:
-        return const Color(0xFF1F2A1F); // deep moss
+        return AppColors.noteBgMoss;
       case 1:
-        return const Color(0xFF291F1F); // wine
+        return AppColors.noteBgWine;
       case 2:
-        return const Color(0xFF1E2433); // navy
+        return AppColors.noteBgNavy;
       default:
-        return const Color(0xFF2A2418); // sand (matches tagNoteMuted)
+        return AppColors.tagNoteMuted; // sand
     }
   }
 

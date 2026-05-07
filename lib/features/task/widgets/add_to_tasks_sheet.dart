@@ -4,6 +4,7 @@ import '../../../core/models/screenshot_model.dart';
 import '../../../core/models/task_model.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
+import '../../../shared/widgets/primary_button.dart';
 import '../task_prefill.dart';
 
 enum _FormVariant { generic, event, simple }
@@ -200,27 +201,12 @@ class _AddToTasksSheetState extends State<AddToTasksSheet> {
           const SizedBox(height: 20),
 
           // Submit button
-          SizedBox(
-            width: double.infinity,
-            child: GestureDetector(
-              onTap: _submit,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  color: AppColors.accent,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(
-                  child: Text(
-                    widget.isEditing ? 'Save Changes' : 'Create Task',
-                    style: AppTypography.bodyLg.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          PrimaryButton(
+            label: widget.isEditing ? 'Save Changes' : 'Create Task',
+            onPressed: _isSaving ? null : _submit,
+            loading: _isSaving,
+            expanded: true,
+            size: PrimaryButtonSize.lg,
           ),
         ],
       ),

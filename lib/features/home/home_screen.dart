@@ -24,11 +24,18 @@ import '../task/task_provider.dart';
 import '../task/widgets/add_to_tasks_sheet.dart';
 import '../stacks/widgets/stack_chooser_sheet.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  bool _scrolled = false;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(homeProvider);
     final notifier = ref.read(homeProvider.notifier);
     final actions = ref.watch(smartActionsProvider);
@@ -45,104 +52,106 @@ class HomeScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Fixed: title header ───────────────────────────────────
-                _Header(backfillRemaining: state.backfillRemaining),
-                const SizedBox(height: 14),
-
-                // ── Fixed: tag filter bar (bigger chips + gradient fade) ──
-                TagFilterBar(
-                  selected: state.tagFilter,
-                  onSelected: notifier.setFilter,
-                ),
-                if (state.isImporting) ...[
-                  const SizedBox(height: 4),
-                  const LinearProgressIndicator(
-                    minHeight: 1,
-                    backgroundColor: AppColors.borderSubtle,
-                    color: AppColors.accent,
+                // ── Fixed header — shadow appears on scroll ───────────────
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
+                  decoration: BoxDecoration(
+                    color: AppColors.bgBase,
+                    boxShadow: _scrolled
+                        ? [
+                            BoxShadow(
+                              color: AppColors.shadowDefault,
+                              blurRadius: 16,
+                              offset: const Offset(0, 6),
+                            ),
+                          ]
+                        : const [],
                   ),
-                ],
-                const SizedBox(height: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _Header(backfillRemaining: state.backfillRemaining),
+                      const SizedBox(height: 14),
+                      TagFilterBar(
+                        selected: state.tagFilter,
+                        onSelected: notifier.setFilter,
+                      ),
+                      if (state.isImporting) ...[
+                        const SizedBox(height: 4),
+                        const LinearProgressIndicator(
+                          minHeight: 1,
+                          backgroundColor: AppColors.borderSubtle,
+                          color: AppColors.accent,
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
 
                 // ── Scrollable: actions banner + screenshot grid ───────────
                 Expanded(
-                  child: Stack(
-                    children: [
-                      _ScrollableBody(
-                        tagFilter: state.tagFilter,
-                        screenshots: state.screenshots,
-                        searchQuery: state.searchQuery,
-                        actions: actions,
-                        onOpen: (s) => context.push('/screenshot/${s.id}'),
-                        onDelete: (id) => notifier.deleteScreenshot(id),
-                        onAddToTasks: (s) {
-                          final taskNotifier =
-                              ref.read(taskProvider.notifier);
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: AppColors.bgElevated,
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(
-                                  top: Radius.circular(12)),
-                              side: BorderSide(
-                                  color: AppColors.borderDefault, width: 1),
-                            ),
-                            builder: (_) => AddToTasksSheet(
-                              screenshot: s,
-                              onCreate: taskNotifier.addTask,
-                            ),
-                          );
-                        },
-                        onAddToStack: (s) {
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: AppColors.bgElevated,
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(
-                                  top: Radius.circular(16)),
-                            ),
-                            builder: (_) => StackChooserSheet(screenshot: s),
-                          );
-                        },
-                        onExecuteAction: (a) =>
-                            smartActionsService.execute(a, context),
-                        onOpenAction: (a) {
-                          final id = a.screenshot.id;
-                          if (id != null) context.push('/screenshot/$id');
-                        },
-                        onRemoveAction: (a) {
-                          final id = a.screenshot.id;
-                          if (id != null) {
-                            ref
-                                .read(dismissedActionsProvider.notifier)
-                                .update((s) => {...s, id});
-                          }
-                        },
-                      ),
-                      // Header-to-content scroll-blend gradient
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: 16,
-                        child: IgnorePointer(
-                          child: Container(
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  AppColors.bgBase,
-                                  Colors.transparent,
-                                ],
-                              ),
-                            ),
+                  child: NotificationListener<ScrollUpdateNotification>(
+                    onNotification: (n) {
+                      final scrolled = n.metrics.pixels > 2;
+                      if (scrolled != _scrolled) {
+                        setState(() => _scrolled = scrolled);
+                      }
+                      return false;
+                    },
+                    child: _ScrollableBody(
+                      tagFilter: state.tagFilter,
+                      screenshots: state.screenshots,
+                      searchQuery: state.searchQuery,
+                      actions: actions,
+                      onOpen: (s) => context.push('/screenshot/${s.id}'),
+                      onDelete: (id) => notifier.deleteScreenshot(id),
+                      onAddToTasks: (s) {
+                        final taskNotifier = ref.read(taskProvider.notifier);
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: AppColors.bgElevated,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(12)),
+                            side: BorderSide(
+                                color: AppColors.borderDefault, width: 1),
                           ),
-                        ),
-                      ),
-                    ],
+                          builder: (_) => AddToTasksSheet(
+                            screenshot: s,
+                            onCreate: taskNotifier.addTask,
+                          ),
+                        );
+                      },
+                      onAddToStack: (s) {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: AppColors.bgElevated,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(16)),
+                          ),
+                          builder: (_) => StackChooserSheet(screenshot: s),
+                        );
+                      },
+                      onExecuteAction: (a) =>
+                          smartActionsService.execute(a, context),
+                      onOpenAction: (a) {
+                        final id = a.screenshot.id;
+                        if (id != null) context.push('/screenshot/$id');
+                      },
+                      onRemoveAction: (a) {
+                        final id = a.screenshot.id;
+                        if (id != null) {
+                          ref
+                              .read(dismissedActionsProvider.notifier)
+                              .update((s) => {...s, id});
+                        }
+                      },
+                    ),
                   ),
                 ),
               ],
@@ -151,9 +160,9 @@ class HomeScreen extends ConsumerWidget {
 
           // ── Bottom bar — search expands left→right, FAB slides out right ──
           Positioned(
-            left: 22,
-            right: 22,
-            bottom: keyboardBottom + 24,
+            left: 16,
+            right: 16,
+            bottom: keyboardBottom + 16,
             child: _BottomBar(
               query: state.searchQuery,
               onSearchChanged: notifier.setSearch,
@@ -584,7 +593,7 @@ class _LogoMark extends StatelessWidget {
       height: 44,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF8B5CF6), Color(0xFF5B21B6)],
+          colors: [AppColors.gradientStart, AppColors.gradientEnd],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -593,7 +602,7 @@ class _LogoMark extends StatelessWidget {
       padding: const EdgeInsets.all(6),
       child: SvgPicture.asset(
         'assets/images/RecallOS-appicon.svg',
-        colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+        colorFilter: const ColorFilter.mode(AppColors.textPrimary, BlendMode.srcIn),
       ),
     );
   }
@@ -782,7 +791,7 @@ class _InitialsCircle extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: const LinearGradient(
-          colors: [Color(0xFF8B5CF6), Color(0xFF5B21B6)],
+          colors: [AppColors.gradientStart, AppColors.gradientEnd],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -791,7 +800,7 @@ class _InitialsCircle extends StatelessWidget {
       child: Text(
         initials,
         style: AppTypography.labelMd.copyWith(
-          color: Colors.white,
+          color: AppColors.textPrimary,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -885,4 +894,3 @@ class _MasonryGrid extends StatelessWidget {
     );
   }
 }
-

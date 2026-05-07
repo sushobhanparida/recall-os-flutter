@@ -211,12 +211,12 @@ class _StackTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: isCreate
               ? AppColors.accent.withValues(alpha: 0.08)
               : AppColors.bgSurface,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isCreate ? AppColors.accent.withValues(alpha: 0.3) : AppColors.borderDefault,
             width: 1,

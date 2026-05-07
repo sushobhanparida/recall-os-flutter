@@ -5,6 +5,7 @@ import 'app.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/screenshot_watcher_service.dart';
 import 'core/supabase/supabase_config.dart';
+import 'core/theme/colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +21,7 @@ void main() async {
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
-    systemNavigationBarColor: Color(0xFF0F0F0F),
+    systemNavigationBarColor: AppColors.bgBase,
     systemNavigationBarIconBrightness: Brightness.light,
   ));
 
