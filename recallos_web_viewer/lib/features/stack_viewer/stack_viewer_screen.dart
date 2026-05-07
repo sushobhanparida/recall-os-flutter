@@ -20,7 +20,12 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
   bool _error = false;
   bool _showOpenInApp = true;
   final _pageController = PageController();
+  final _thumbnailScrollController = ScrollController();
   int _currentPage = 0;
+
+  static const double _thumbnailWidth = 60;
+  static const double _thumbnailHeight = 80;
+  static const double _thumbnailSpacing = 8;
 
   @override
   void initState() {
@@ -28,14 +33,42 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
     _fetchStack();
     _pageController.addListener(() {
       final page = _pageController.page?.round() ?? 0;
-      if (page != _currentPage) setState(() => _currentPage = page);
+      if (page != _currentPage) {
+        setState(() => _currentPage = page);
+        _scrollThumbnailToVisible(page);
+      }
     });
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _thumbnailScrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollThumbnailToVisible(int index) {
+    if (!_thumbnailScrollController.hasClients) return;
+    final itemWidth = _thumbnailWidth + _thumbnailSpacing;
+    final targetOffset = index * itemWidth;
+    final viewportWidth = _thumbnailScrollController.position.viewportDimension;
+    final currentOffset = _thumbnailScrollController.offset;
+    final maxOffset = _thumbnailScrollController.position.maxScrollExtent;
+
+    final visibleStart = currentOffset;
+    final visibleEnd = currentOffset + viewportWidth;
+    final itemStart = targetOffset;
+    final itemEnd = targetOffset + _thumbnailWidth;
+
+    if (itemStart < visibleStart || itemEnd > visibleEnd) {
+      final desired = (targetOffset - viewportWidth / 2 + _thumbnailWidth / 2)
+          .clamp(0.0, maxOffset);
+      _thumbnailScrollController.animateTo(
+        desired,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   Future<void> _fetchStack() async {
@@ -55,8 +88,6 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
         setState(() { _stack = SharedStack.fromMap(data); _loading = false; });
       }
     } catch (e, st) {
-      // Treat any fetch error (PostgREST, network) the same as "no data" —
-      // redirect to login if unauthenticated, otherwise try to join.
       debugPrint('[StackViewer] fetch failed: $e\n$st');
       _handleAccessFailure(client);
     }
@@ -64,11 +95,8 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
 
   void _handleAccessFailure(SupabaseClient client) {
     if (client.auth.currentUser == null) {
-      // Not signed in — send to login/signup, come back here after.
       if (mounted) context.go('/auth/login?redirect=/stack/${widget.stackId}');
     } else {
-      // Signed in but can't see the stack yet (private, not a member).
-      // UUID possession = invite token: join and retry.
       _joinAndRefetch(client);
     }
   }
@@ -87,7 +115,6 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
           .maybeSingle();
       if (!mounted) return;
       if (data == null) {
-        // Stack truly doesn't exist (deleted / invalid UUID).
         setState(() { _error = true; _loading = false; });
         return;
       }
@@ -106,8 +133,8 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
     if (_currentPage > 0) {
       _pageController.animateToPage(
         _currentPage - 1,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
       );
     }
   }
@@ -117,10 +144,14 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
     if (_currentPage < count - 1) {
       _pageController.animateToPage(
         _currentPage + 1,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
       );
     }
+  }
+
+  void _jumpToPage(int index) {
+    _pageController.jumpToPage(index);
   }
 
   @override
@@ -160,7 +191,7 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
             padding: const EdgeInsets.only(right: 16),
             child: Center(
               child: Text(
-                '$count screenshot${count == 1 ? '' : 's'}',
+                '${_currentPage + 1} / $count',
                 style: const TextStyle(color: Color(0xFF6B6B6B), fontSize: 13),
               ),
             ),
@@ -174,70 +205,195 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
               onOpen: _openInApp,
               onDismiss: () => setState(() => _showOpenInApp = false),
             ),
-          Expanded(child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isWide = constraints.maxWidth > 700;
-          final viewerWidth = isWide ? 600.0 : constraints.maxWidth;
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth > 700;
+                final viewerWidth = isWide ? 600.0 : constraints.maxWidth;
 
-          return Center(
-            child: SizedBox(
-              width: viewerWidth,
-              child: Column(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      // Tap left third → prev, right third → next (for desktop)
-                      onTapUp: (details) {
-                        final x = details.localPosition.dx;
-                        if (x < viewerWidth / 3) {
-                          _goToPrev();
-                        } else if (x > viewerWidth * 2 / 3) {
-                          _goToNext();
-                        }
-                      },
-                      child: PageView.builder(
-                        controller: _pageController,
-                        itemCount: count,
-                        itemBuilder: (context, i) {
-                          return Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                stack.imageUrls[i],
-                                fit: BoxFit.contain,
-                                loadingBuilder: (_, child, progress) {
-                                  if (progress == null) return child;
-                                  return const Center(
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 1.5,
-                                      color: Color(0xFF7C3AED),
+                return Center(
+                  child: SizedBox(
+                    width: viewerWidth,
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              PageView.builder(
+                                controller: _pageController,
+                                itemCount: count,
+                                physics: const PageScrollPhysics(
+                                  parent: ClampingScrollPhysics(),
+                                ),
+                                itemBuilder: (context, i) {
+                                  return Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        stack.imageUrls[i],
+                                        fit: BoxFit.contain,
+                                        loadingBuilder: (_, child, progress) {
+                                          if (progress == null) return child;
+                                          return const Center(
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 1.5,
+                                              color: Color(0xFF7C3AED),
+                                            ),
+                                          );
+                                        },
+                                        errorBuilder: (_, __, ___) =>
+                                            const Center(
+                                          child: Icon(
+                                              Icons.broken_image_outlined,
+                                              color: Color(0xFF444444),
+                                              size: 48),
+                                        ),
+                                      ),
                                     ),
                                   );
                                 },
-                                errorBuilder: (_, __, ___) => const Center(
-                                  child: Icon(Icons.broken_image_outlined,
-                                      color: Color(0xFF444444), size: 48),
-                                ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
+                              if (count > 1) ...[
+                                Positioned(
+                                  left: 8,
+                                  child: _NavArrowButton(
+                                    icon: Icons.chevron_left,
+                                    enabled: _currentPage > 0,
+                                    onTap: _goToPrev,
+                                  ),
+                                ),
+                                Positioned(
+                                  right: 8,
+                                  child: _NavArrowButton(
+                                    icon: Icons.chevron_right,
+                                    enabled: _currentPage < count - 1,
+                                    onTap: _goToNext,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (count > 1)
+                          _ThumbnailStrip(
+                            imageUrls: stack.imageUrls,
+                            currentIndex: _currentPage,
+                            scrollController: _thumbnailScrollController,
+                            onTap: _jumpToPage,
+                            thumbnailWidth: _thumbnailWidth,
+                            thumbnailHeight: _thumbnailHeight,
+                            spacing: _thumbnailSpacing,
+                          ),
+                        const SizedBox(height: 16),
+                      ],
                     ),
                   ),
-                  // Page indicator
-                  if (count > 1)
-                    _PageDots(
-                        count: count, currentIndex: _currentPage),
-                  const SizedBox(height: 24),
-                ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavArrowButton extends StatelessWidget {
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _NavArrowButton({
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: enabled ? 1.0 : 0.25,
+      duration: const Duration(milliseconds: 150),
+      child: GestureDetector(
+        onTap: enabled ? onTap : null,
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1E1E),
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFF2E2E2E), width: 1),
+          ),
+          child: Icon(icon, color: const Color(0xFFF7F7F7), size: 22),
+        ),
+      ),
+    );
+  }
+}
+
+class _ThumbnailStrip extends StatelessWidget {
+  final List<String> imageUrls;
+  final int currentIndex;
+  final ScrollController scrollController;
+  final ValueChanged<int> onTap;
+  final double thumbnailWidth;
+  final double thumbnailHeight;
+  final double spacing;
+
+  const _ThumbnailStrip({
+    required this.imageUrls,
+    required this.currentIndex,
+    required this.scrollController,
+    required this.onTap,
+    required this.thumbnailWidth,
+    required this.thumbnailHeight,
+    required this.spacing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: thumbnailHeight + 16,
+      child: ListView.builder(
+        controller: scrollController,
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: spacing, vertical: 8),
+        physics: const BouncingScrollPhysics(),
+        itemCount: imageUrls.length,
+        itemBuilder: (context, i) {
+          final isActive = i == currentIndex;
+          return GestureDetector(
+            onTap: () => onTap(i),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: thumbnailWidth,
+              margin: EdgeInsets.symmetric(horizontal: spacing / 2),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isActive
+                      ? const Color(0xFF7C3AED)
+                      : const Color(0xFF2E2E2E),
+                  width: isActive ? 2 : 1,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(5),
+                child: Image.network(
+                  imageUrls[i],
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: const Color(0xFF1E1E1E),
+                    child: const Icon(Icons.broken_image_outlined,
+                        color: Color(0xFF444444), size: 20),
+                  ),
+                ),
               ),
             ),
           );
         },
-      )),
-        ],
       ),
     );
   }
@@ -283,40 +439,6 @@ class _OpenInAppBanner extends StatelessWidget {
             child: const Icon(Icons.close, color: Color(0xFF6B6B6B), size: 18),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PageDots extends StatelessWidget {
-  final int count;
-  final int currentIndex;
-
-  const _PageDots({required this.count, required this.currentIndex});
-
-  @override
-  Widget build(BuildContext context) {
-    // Clamp to at most 9 dots; show ellipsis behaviour via opacity instead
-    final show = count <= 9 ? count : 9;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: List.generate(show, (i) {
-          final isActive = i == currentIndex.clamp(0, show - 1);
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.symmetric(horizontal: 3),
-            width: isActive ? 16 : 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: isActive
-                  ? const Color(0xFF7C3AED)
-                  : const Color(0xFF383838),
-              borderRadius: BorderRadius.circular(3),
-            ),
-          );
-        }),
       ),
     );
   }
