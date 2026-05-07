@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -385,7 +386,7 @@ class _LandingView extends StatelessWidget {
                   label: 'Continue with Email',
                   onPressed: onEmail,
                   height: 54,
-                  icon: Icons.mail_outline_rounded,
+                  icon: LucideIcons.mail,
                 ),
                 const SizedBox(height: 12),
                 _GoogleButton(onPressed: onGoogle, loading: googleLoading),
@@ -766,7 +767,7 @@ class _PrimaryButtonState extends State<_PrimaryButton> {
     final color = disabled ? const Color(0xFF444444) : Colors.white;
     final label = Text(
       widget.label,
-      style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.w600),
+      style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.w500),
     );
     if (widget.icon == null) return label;
     final icon = Icon(widget.icon, size: 18, color: color);
@@ -885,7 +886,7 @@ class _GoogleButtonState extends State<_GoogleButton> {
                     const Text(
                       'Continue with Google',
                       style: TextStyle(
-                        color: _textPrimary, fontSize: 16, fontWeight: FontWeight.w600,
+                        color: _textPrimary, fontSize: 16, fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
