@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -22,6 +23,8 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
   final _pageController = PageController();
   final _thumbnailScrollController = ScrollController();
   int _currentPage = 0;
+  bool _arrowsVisible = false;
+  Timer? _arrowHideTimer;
 
   static const double _thumbnailWidth = 60;
   static const double _thumbnailHeight = 80;
@@ -42,9 +45,18 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
 
   @override
   void dispose() {
+    _arrowHideTimer?.cancel();
     _pageController.dispose();
     _thumbnailScrollController.dispose();
     super.dispose();
+  }
+
+  void _showArrowsBriefly() {
+    setState(() => _arrowsVisible = true);
+    _arrowHideTimer?.cancel();
+    _arrowHideTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _arrowsVisible = false);
+    });
   }
 
   void _scrollThumbnailToVisible(int index) {
@@ -211,69 +223,95 @@ class _StackViewerScreenState extends State<StackViewerScreen> {
                 final isWide = constraints.maxWidth > 700;
                 final viewerWidth = isWide ? 600.0 : constraints.maxWidth;
 
+                final showArrows = isWide || _arrowsVisible;
+
                 return Center(
                   child: SizedBox(
                     width: viewerWidth,
                     child: Column(
                       children: [
                         Expanded(
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              PageView.builder(
-                                controller: _pageController,
-                                itemCount: count,
-                                physics: const PageScrollPhysics(
-                                  parent: ClampingScrollPhysics(),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: isWide ? null : _showArrowsBriefly,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                PageView.builder(
+                                  controller: _pageController,
+                                  itemCount: count,
+                                  physics: const PageScrollPhysics(
+                                    parent: ClampingScrollPhysics(),
+                                  ),
+                                  itemBuilder: (context, i) {
+                                    return Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.network(
+                                          stack.imageUrls[i],
+                                          fit: BoxFit.contain,
+                                          loadingBuilder: (_, child, progress) {
+                                            if (progress == null) return child;
+                                            return const Center(
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 1.5,
+                                                color: Color(0xFF7C3AED),
+                                              ),
+                                            );
+                                          },
+                                          errorBuilder: (_, __, ___) =>
+                                              const Center(
+                                            child: Icon(
+                                                Icons.broken_image_outlined,
+                                                color: Color(0xFF444444),
+                                                size: 48),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
-                                itemBuilder: (context, i) {
-                                  return Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.network(
-                                        stack.imageUrls[i],
-                                        fit: BoxFit.contain,
-                                        loadingBuilder: (_, child, progress) {
-                                          if (progress == null) return child;
-                                          return const Center(
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 1.5,
-                                              color: Color(0xFF7C3AED),
-                                            ),
-                                          );
-                                        },
-                                        errorBuilder: (_, __, ___) =>
-                                            const Center(
-                                          child: Icon(
-                                              Icons.broken_image_outlined,
-                                              color: Color(0xFF444444),
-                                              size: 48),
+                                if (count > 1) ...[
+                                  Positioned(
+                                    left: 8,
+                                    child: AnimatedOpacity(
+                                      opacity: showArrows ? 1.0 : 0.0,
+                                      duration: const Duration(milliseconds: 200),
+                                      child: IgnorePointer(
+                                        ignoring: !showArrows,
+                                        child: _NavArrowButton(
+                                          icon: Icons.chevron_left,
+                                          enabled: _currentPage > 0,
+                                          onTap: () {
+                                            _goToPrev();
+                                            if (!isWide) _showArrowsBriefly();
+                                          },
                                         ),
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
-                              if (count > 1) ...[
-                                Positioned(
-                                  left: 8,
-                                  child: _NavArrowButton(
-                                    icon: Icons.chevron_left,
-                                    enabled: _currentPage > 0,
-                                    onTap: _goToPrev,
                                   ),
-                                ),
-                                Positioned(
-                                  right: 8,
-                                  child: _NavArrowButton(
-                                    icon: Icons.chevron_right,
-                                    enabled: _currentPage < count - 1,
-                                    onTap: _goToNext,
+                                  Positioned(
+                                    right: 8,
+                                    child: AnimatedOpacity(
+                                      opacity: showArrows ? 1.0 : 0.0,
+                                      duration: const Duration(milliseconds: 200),
+                                      child: IgnorePointer(
+                                        ignoring: !showArrows,
+                                        child: _NavArrowButton(
+                                          icon: Icons.chevron_right,
+                                          enabled: _currentPage < count - 1,
+                                          onTap: () {
+                                            _goToNext();
+                                            if (!isWide) _showArrowsBriefly();
+                                          },
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
                         ),
                         if (count > 1)
