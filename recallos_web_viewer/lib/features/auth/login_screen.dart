@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -299,15 +300,16 @@ class _LandingView extends StatelessWidget {
                 'RecallOS',
                 style: TextStyle(
                   color: _textPrimary,
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
                   letterSpacing: -0.5,
+                  height: 1.3,
                 ),
               ),
-              SizedBox(height: 8),
+              SizedBox(height: 6),
               Text(
                 'Capture everything. Forget nothing.',
-                style: TextStyle(color: _textMuted, fontSize: 15),
+                style: TextStyle(color: _textMuted, fontSize: 13),
               ),
             ],
           ),
@@ -336,7 +338,12 @@ class _LandingView extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                 ],
-                _PrimaryButton(label: 'Continue with Email', onPressed: onEmail, height: 54),
+                _PrimaryButton(
+                  label: 'Continue with Email',
+                  onPressed: onEmail,
+                  height: 54,
+                  icon: Icons.mail_outline_rounded,
+                ),
                 const SizedBox(height: 12),
                 _GoogleButton(onPressed: onGoogle, loading: googleLoading),
               ],
@@ -397,7 +404,13 @@ class _EmailView extends StatelessWidget {
             onSubmitted: (_) => onContinue(),
           ),
           const SizedBox(height: 24),
-          _PrimaryButton(label: 'Continue', onPressed: onContinue, loading: loading),
+          _PrimaryButton(
+            label: 'Continue',
+            onPressed: onContinue,
+            loading: loading,
+            icon: Icons.arrow_forward_rounded,
+            iconTrailing: true,
+          ),
         ],
       ),
     );
@@ -466,7 +479,12 @@ class _SignInView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          _PrimaryButton(label: 'Sign in', onPressed: onSignIn, loading: loading),
+          _PrimaryButton(
+            label: 'Sign In',
+            onPressed: onSignIn,
+            loading: loading,
+            icon: Icons.login_rounded,
+          ),
         ],
       ),
     );
@@ -529,7 +547,12 @@ class _SignUpView extends StatelessWidget {
             onSubmitted: (_) => onSignUp(),
           ),
           const SizedBox(height: 24),
-          _PrimaryButton(label: 'Create account', onPressed: onSignUp, loading: loading),
+          _PrimaryButton(
+            label: 'Create Account',
+            onPressed: onSignUp,
+            loading: loading,
+            icon: Icons.person_add_outlined,
+          ),
         ],
       ),
     );
@@ -544,21 +567,27 @@ class _AppIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 72,
-      height: 72,
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
-        color: _accent,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(11),
         boxShadow: [
           BoxShadow(
             color: _accent.withValues(alpha: 0.35),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
-      alignment: Alignment.center,
-      child: const Icon(Icons.layers_rounded, color: Colors.white, size: 34),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: SvgPicture.asset(
+          'assets/images/RecallOS-appicon.svg',
+          width: 44,
+          height: 44,
+          fit: BoxFit.cover,
+        ),
+      ),
     );
   }
 }
@@ -569,18 +598,18 @@ class _StackedCardsHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 260,
-      height: 224,
+      width: 156,
+      height: 135,
       child: Stack(
         alignment: Alignment.center,
         children: [
           Transform.translate(
-            offset: const Offset(-22, 10),
+            offset: const Offset(-13, 6),
             child: Transform.rotate(
               angle: -0.14,
               child: _ScreenCard(
-                width: 138,
-                height: 184,
+                width: 83,
+                height: 110,
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -591,12 +620,12 @@ class _StackedCardsHero extends StatelessWidget {
             ),
           ),
           Transform.translate(
-            offset: const Offset(20, 8),
+            offset: const Offset(12, 5),
             child: Transform.rotate(
               angle: 0.10,
               child: _ScreenCard(
-                width: 140,
-                height: 186,
+                width: 84,
+                height: 112,
                 gradient: const LinearGradient(
                   begin: Alignment.topRight,
                   end: Alignment.bottomLeft,
@@ -607,8 +636,8 @@ class _StackedCardsHero extends StatelessWidget {
             ),
           ),
           _ScreenCard(
-            width: 148,
-            height: 194,
+            width: 89,
+            height: 116,
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -655,7 +684,7 @@ class _ScreenCard extends StatelessWidget {
           ? Center(
               child: Icon(
                 Icons.layers_rounded,
-                size: 32,
+                size: 20,
                 color: _accent.withValues(alpha: 0.25),
               ),
             )
@@ -669,12 +698,16 @@ class _PrimaryButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final bool loading;
   final double height;
+  final IconData? icon;
+  final bool iconTrailing;
 
   const _PrimaryButton({
     required this.label,
     required this.onPressed,
     this.loading = false,
     this.height = 52,
+    this.icon,
+    this.iconTrailing = false,
   });
 
   @override
@@ -685,6 +718,23 @@ class _PrimaryButtonState extends State<_PrimaryButton> {
   bool _pressed = false;
 
   bool get _disabled => widget.onPressed == null || widget.loading;
+
+  Widget _buildButtonContent(bool disabled) {
+    final color = disabled ? const Color(0xFF444444) : Colors.white;
+    final label = Text(
+      widget.label,
+      style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.w600),
+    );
+    if (widget.icon == null) return label;
+    final icon = Icon(widget.icon, size: 17, color: color);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: widget.iconTrailing
+          ? [label, const SizedBox(width: 6), icon]
+          : [icon, const SizedBox(width: 8), label],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -730,14 +780,7 @@ class _PrimaryButtonState extends State<_PrimaryButton> {
                     valueColor: AlwaysStoppedAnimation(Colors.white),
                   ),
                 )
-              : Text(
-                  widget.label,
-                  style: TextStyle(
-                    color: _disabled ? const Color(0xFF444444) : Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+              : _buildButtonContent(_disabled),
         ),
       ),
     );
@@ -790,8 +833,8 @@ class _GoogleButtonState extends State<_GoogleButton> {
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Image.network(
-                      'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                    SvgPicture.asset(
+                      'assets/images/google_logo.svg',
                       width: 20,
                       height: 20,
                     ),
